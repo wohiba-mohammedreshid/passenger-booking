@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BusGo Passenger Booking</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Progress Indicator -->
+    <div class="progress">
+      <div class="step" data-step="1"></div>
+      <div class="step" data-step="2"></div>
+      <div class="step" data-step="3"></div>
+      <div class="step" data-step="4"></div>
+      <div class="step" data-step="5"></div>
+    </div>
+
+    <!-- Home Screen -->
+    <div class="screen" id="home">
+      <h1>Welcome to BusGo</h1>
+      <button id="bookNow" class="btn-primary">Book Now</button>
+    </div>
+
+    <!-- Route Selection -->
+    <div class="screen" id="routeSelection">
+      <h2>Select Your Route</h2>
+      <form id="routeForm">
+        <div class="form-group">
+          <label for="departure">Departure Station:</label>
+          <select id="departure" required>
+            <option value="">Select Departure</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="destination">Destination Station:</label>
+          <select id="destination" required>
+            <option value="">Select Destination</option>
+          </select>
+        </div>
+        <div class="button-group">
+          <button type="button" id="cancelRoute" class="btn-secondary">Cancel</button>
+          <button type="button" id="undoRoute" class="btn-secondary">Undo</button>
+          <button type="submit" class="btn-primary">Continue</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Passenger Identification -->
+    <div class="screen" id="passengerIdentification">
+      <h2>Passenger Identification</h2>
+      <form id="fanForm">
+        <div class="form-group">
+          <label for="fan">Enter your FAN:</label>
+          <input type="text" id="fan" required>
+        </div>
+        <button type="submit" class="btn-primary">Send Code</button>
+      </form>
+    </div>
+
+    <!-- OTP Verification -->
+    <div class="screen" id="otpVerification">
+      <h2>OTP Verification</h2>
+      <form id="otpForm">
+        <div class="form-group">
+          <label for="otp">Enter verification code:</label>
+          <input type="text" id="otp" required>
+        </div>
+        <div id="otpMessage" class="message"></div>
+        <button type="submit" class="btn-primary">Verify</button>
+      </form>
+    </div>
+
+    <!-- Payment Selection -->
+    <div class="screen" id="paymentSelection">
+      <h2>Select Payment Method</h2>
+      <div class="payment-options">
+        <label><input type="radio" name="payment" value="credit_card"> Credit Card</label>
+        <label><input type="radio" name="payment" value="paypal"> PayPal</label>
+        <label><input type="radio" name="payment" value="google_pay"> Google Pay</label>
+      </div>
+      <button id="confirmPayment" class="btn-primary">Confirm Payment</button>
+    </div>
+
+    <!-- Booking Confirmation -->
+    <div class="screen" id="bookingConfirmation">
+      <h2>Booking Confirmation</h2>
+      <div id="bookingDetails">
+        <p><strong>Booking ID:</strong> <span id="bookingId"></span></p>
+        <p><strong>Departure:</strong> <span id="confDeparture"></span></p>
+        <p><strong>Destination:</strong> <span id="confDestination"></span></p>
+        <p><strong>Payment Status:</strong> <span id="paymentStatus"></span></p>
+      </div>
+      <button id="newBooking" class="btn-primary">New Booking</button>
+    </div>
+  </div>
+</body>
+</html>
