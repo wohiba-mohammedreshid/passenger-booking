@@ -1,179 +1,123 @@
-import tkinter as tk
-from tkinter import messagebox
+from flask import Flask, render_template, request, redirect, url_for, flash
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
 
-class BusGoApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("BusGo Passenger Booking")
-        self.current_step = 1
-        self.booking_data = {}
+app = Flask(__name__)
+app.secret_key = "supersecretkey"
 
-        # Initialize UI
-        self.create_home_screen()
+# Database Configuration (SQLite for simplicity)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///busgo.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-    def create_home_screen(self):
-        self.clear_screen()
-        self.current_step = 1
+db = SQLAlchemy(app)
 
-        label = tk.Label(self.root, text="Welcome to BusGo", font=("Arial", 24))
-        label.pack(pady=20)
+# Initialize Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'  # Route to redirect if unauthorized
 
-        book_now_btn = tk.Button(self.root, text="Book Now", command=self.show_route_selection)
-        book_now_btn.pack(pady=10)
+# User Model
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(200), nullable=False)
 
-    def show_route_selection(self):
-        self.clear_screen()
-        self.current_step = 2
+# Bookings Model (updated)
+class Booking(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    departure = db.Column(db.String(100), nullable=False)
+    destination = db.Column(db.String(100), nullable=False)
+    fan = db.Column(db.String(100), nullable=False)
+    payment_method = db.Column(db.String(100), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
-        label = tk.Label(self.root, text="Select Your Route", font=("Arial", 20))
-        label.pack(pady=20)
+# Load user for Flask-Login
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
-        # Departure Station
-        departure_label = tk.Label(self.root, text="Departure Station:")
-        departure_label.pack()
-        self.departure_var = tk.StringVar()
-        self.departure_dropdown = tk.OptionMenu(self.root, self.departure_var, *["Station A", "Station B", "Station C"])
-        self.departure_dropdown.pack()
+# Create tables (run once)
+with app.app_context():
+    db.create_all()
 
-        # Destination Station
-        destination_label = tk.Label(self.root, text="Destination Station:")
-        destination_label.pack()
-        self.destination_var = tk.StringVar()
-        self.destination_dropdown = tk.OptionMenu(self.root, self.destination_var, *["Station A", "Station B", "Station C"])
-        self.destination_dropdown.pack()
+# Registration Route
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        # Check if user already exists
+        if User.query.filter_by(username=username).first():
+            flash('Username already taken!', 'error')
+            return redirect(url_for('register'))
+        
+        # Hash password
+        hashed_password = generate_password_hash(password, method='sha256')
+        
+        # Create new user
+        new_user = User(username=username, email=email, password=hashed_password)
+        db.session.add(new_user)
+        db.session.commit()
+        
+        flash('Registration successful! Please log in.', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('register.html')
 
-        # Buttons
-        button_frame = tk.Frame(self.root)
-        button_frame.pack(pady=10)
-
-        cancel_btn = tk.Button(button_frame, text="Cancel", command=self.create_home_screen)
-        cancel_btn.pack(side=tk.LEFT, padx=5)
-
-        undo_btn = tk.Button(button_frame, text="Undo", command=self.clear_selections)
-        undo_btn.pack(side=tk.LEFT, padx=5)
-
-        continue_btn = tk.Button(button_frame, text="Continue", command=self.validate_route_selection)
-        continue_btn.pack(side=tk.LEFT, padx=5)
-
-    def validate_route_selection(self):
-        departure = self.departure_var.get()
-        destination = self.destination_var.get()
-
-        if not departure or not destination:
-            messagebox.showerror("Error", "Please select both departure and destination stations.")
-            return
-        if departure == destination:
-            messagebox.showerror("Error", "Departure and destination cannot be the same.")
-            return
-
-        self.booking_data["departure"] = departure
-        self.booking_data["destination"] = destination
-        self.show_passenger_identification()
-
-    def show_passenger_identification(self):
-        self.clear_screen()
-        self.current_step = 3
-
-        label = tk.Label(self.root, text="Passenger Identification", font=("Arial", 20))
-        label.pack(pady=20)
-
-        fan_label = tk.Label(self.root, text="Enter your FAN:")
-        fan_label.pack()
-        self.fan_entry = tk.Entry(self.root)
-        self.fan_entry.pack()
-
-        send_code_btn = tk.Button(self.root, text="Send Code", command=self.send_otp)
-        send_code_btn.pack(pady=10)
-
-    def send_otp(self):
-        fan = self.fan_entry.get()
-        if fan:
-            # Simulate OTP sending
-            messagebox.showinfo("Success", "OTP sent successfully!")
-            self.show_otp_verification()
+# Login Route
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        user = User.query.filter_by(username=username).first()
+        
+        if user and check_password_hash(user.password, password):
+            login_user(user)
+            flash('Logged in successfully!', 'success')
+            return redirect(url_for('home'))
         else:
-            messagebox.showerror("Error", "Please enter your FAN.")
+            flash('Invalid username or password!', 'error')
+    
+    return render_template('login.html')
 
-    def show_otp_verification(self):
-        self.clear_screen()
-        self.current_step = 4
+# Logout Route
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('Logged out successfully!', 'success')
+    return redirect(url_for('home'))
 
-        label = tk.Label(self.root, text="OTP Verification", font=("Arial", 20))
-        label.pack(pady=20)
+# Protect Booking Routes (Example)
+@app.route('/book_now', methods=['POST'])
+@login_required
+def book_now():
+    return redirect(url_for('route_selection'))
 
-        otp_label = tk.Label(self.root, text="Enter verification code:")
-        otp_label.pack()
-        self.otp_entry = tk.Entry(self.root)
-        self.otp_entry.pack()
+# Update Booking Confirmation to Show User-Specific Bookings
+@app.route('/booking_confirmation')
+@login_required
+def booking_confirmation():
+    latest_booking = Booking.query.filter_by(user_id=current_user.id).order_by(Booking.id.desc()).first()
+    if latest_booking:
+        return render_template(
+            'booking_confirmation.html',
+            booking_id=latest_booking.id,
+            departure=latest_booking.departure,
+            destination=latest_booking.destination,
+            payment_method=latest_booking.payment_method
+        )
+    flash('No booking found.', 'error')
+    return redirect(url_for('home'))
 
-        verify_btn = tk.Button(self.root, text="Verify", command=self.verify_otp)
-        verify_btn.pack(pady=10)
+# Rest of your existing routes (route_selection, passenger_identification, etc.)
+# Ensure they use @login_required where needed.
 
-    def verify_otp(self):
-        otp = self.otp_entry.get()
-        if otp == "1234":  # Simulate OTP verification
-            messagebox.showinfo("Success", "OTP verified successfully!")
-            self.show_payment_selection()
-        else:
-            messagebox.showerror("Error", "Invalid OTP. Please try again.")
-
-    def show_payment_selection(self):
-        self.clear_screen()
-        self.current_step = 5
-
-        label = tk.Label(self.root, text="Select Payment Method", font=("Arial", 20))
-        label.pack(pady=20)
-
-        self.payment_var = tk.StringVar(value="credit_card")
-
-        credit_card_radio = tk.Radiobutton(self.root, text="Credit Card", variable=self.payment_var, value="credit_card")
-        credit_card_radio.pack()
-
-        paypal_radio = tk.Radiobutton(self.root, text="PayPal", variable=self.payment_var, value="paypal")
-        paypal_radio.pack()
-
-        google_pay_radio = tk.Radiobutton(self.root, text="Google Pay", variable=self.payment_var, value="google_pay")
-        google_pay_radio.pack()
-
-        confirm_payment_btn = tk.Button(self.root, text="Confirm Payment", command=self.confirm_payment)
-        confirm_payment_btn.pack(pady=10)
-
-    def confirm_payment(self):
-        payment_method = self.payment_var.get()
-        self.booking_data["payment_method"] = payment_method
-
-        # Simulate booking confirmation
-        booking_id = "B12345"
-        self.show_booking_confirmation(booking_id)
-
-    def show_booking_confirmation(self, booking_id):
-        self.clear_screen()
-        self.current_step = 6
-
-        label = tk.Label(self.root, text="Booking Confirmation", font=("Arial", 20))
-        label.pack(pady=20)
-
-        details = f"""
-        Booking ID: {booking_id}
-        Departure: {self.booking_data["departure"]}
-        Destination: {self.booking_data["destination"]}
-        Payment Status: Success
-        """
-        details_label = tk.Label(self.root, text=details, justify=tk.LEFT)
-        details_label.pack()
-
-        new_booking_btn = tk.Button(self.root, text="New Booking", command=self.create_home_screen)
-        new_booking_btn.pack(pady=10)
-
-    def clear_screen(self):
-        for widget in self.root.winfo_children():
-            widget.destroy()
-
-    def clear_selections(self):
-        self.departure_var.set("")
-        self.destination_var.set("")
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = BusGoApp(root)
-    root.mainloop()
+if __name__ == '__main__':
+    app.run(debug=True)
